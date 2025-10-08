@@ -15,6 +15,7 @@ from .api.auth.auth import router as auth_router
 from .api.v1.documents import router as documents_router
 from .api.v1.query import router as query_router
 from .api.v1.admin import router as admin_router
+from .services.open_source_monitoring import get_monitoring_service
 
 # Configure logging
 logging.basicConfig(
@@ -49,6 +50,13 @@ async def lifespan(app: FastAPI):
         logger.info("Vector database initialized")
     except Exception as e:
         logger.error(f"Failed to initialize vector database: {str(e)}")
+    
+    # Initialize monitoring service
+    try:
+        monitoring = get_monitoring_service()
+        logger.info("Open-source monitoring service initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize monitoring service: {str(e)}")
     
     yield
     
@@ -153,11 +161,29 @@ async def health_check():
 async def root():
     """Root endpoint with API information"""
     return {
-        "message": "AI Knowledge Assistant API",
+        "message": "AI Knowledge Assistant API (100% Open Source)",
         "version": settings.APP_VERSION,
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
+        "metrics": "/metrics"
     }
+
+
+# Prometheus metrics endpoint
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint"""
+    if not settings.PROMETHEUS_METRICS_ENABLED:
+        raise HTTPException(status_code=404, detail="Metrics disabled")
+    
+    monitoring = get_monitoring_service()
+    metrics_data = monitoring.export_prometheus_metrics()
+    
+    from fastapi import Response
+    return Response(
+        content=metrics_data,
+        media_type="text/plain; version=0.0.4; charset=utf-8"
+    )
 
 
 # Include routers

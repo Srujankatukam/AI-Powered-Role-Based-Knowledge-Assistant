@@ -30,20 +30,42 @@ services:
     container_name: knowledge_assistant_backend
     environment:
       - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/knowledge_assistant
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - SECRET_KEY=${SECRET_KEY}
-      - TAVILY_API_KEY=${TAVILY_API_KEY}
-      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
-      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
-      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
-      - AZURE_TENANT_ID=${AZURE_TENANT_ID:-}
-      - KEY_VAULT_URL=${KEY_VAULT_URL:-}
       - DEBUG=false
       - CHROMA_PERSIST_DIRECTORY=/app/data/chroma_db
+      
+      # LLM Configuration (Open Source)
+      - LLM_TYPE=${LLM_TYPE:-huggingface}
+      - LLM_MODEL_NAME=${LLM_MODEL_NAME:-microsoft/DialoGPT-medium}
+      - LLM_DEVICE=${LLM_DEVICE:-cpu}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.7}
+      - LLM_MAX_LENGTH=${LLM_MAX_LENGTH:-512}
+      - LLM_USE_QUANTIZATION=${LLM_USE_QUANTIZATION:-false}
+      
+      # Embedding Configuration (Open Source)
       - EMBEDDING_MODEL_TYPE=${EMBEDDING_MODEL_TYPE:-sentence-transformers}
       - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME:-all-MiniLM-L6-v2}
       - EMBEDDING_DEVICE=${EMBEDDING_DEVICE:-cpu}
       - EMBEDDING_BATCH_SIZE=${EMBEDDING_BATCH_SIZE:-32}
+      
+      # Web Search Configuration (Open Source)
+      - WEB_SEARCH_ENGINE=${WEB_SEARCH_ENGINE:-duckduckgo}
+      - WEB_SEARCH_MAX_RESULTS=${WEB_SEARCH_MAX_RESULTS:-5}
+      - WEB_SEARCH_TIMEOUT=${WEB_SEARCH_TIMEOUT:-10}
+      
+      # Monitoring Configuration (Open Source)
+      - ENABLE_MONITORING=${ENABLE_MONITORING:-true}
+      - MONITORING_DB_PATH=/app/data/monitoring.db
+      - PROMETHEUS_METRICS_ENABLED=${PROMETHEUS_METRICS_ENABLED:-true}
+      
+      # Optional: Azure Key Vault (if needed)
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID:-}
+      - KEY_VAULT_URL=${KEY_VAULT_URL:-}
+      
+      # Optional: OpenAI (if you want to use GPT models)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     ports:
       - "8000:8000"
     volumes:

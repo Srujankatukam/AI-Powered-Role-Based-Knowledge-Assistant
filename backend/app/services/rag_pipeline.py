@@ -7,34 +7,32 @@ from datetime import datetime
 import json
 
 # LangChain imports
-from langchain.agents import AgentExecutor, create_openai_functions_agent
-from langchain.agents.format_scratchpad import format_to_openai_function_messages
-from langchain.agents.output_parsers import OpenAIFunctionsAgentOutputParser
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.agents import AgentExecutor, create_react_agent
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 from langchain.tools import Tool, BaseTool
 from langchain.schema import AgentAction, AgentFinish
-from langchain_openai import ChatOpenAI
 from langchain.memory import ConversationBufferWindowMemory
 from langchain.callbacks import AsyncCallbackHandler
 from langchain.schema import BaseMessage
 
-# Web search
-from tavily import TavilyClient
-
 # Internal services
 from .document_ingestion import DocumentIngestionPipeline
 from .open_source_embeddings import get_embedding_service
+from .open_source_llms import get_open_source_llm
+from .open_source_search import get_search_service
+from .open_source_monitoring import get_monitoring_service
 from ..core.config import settings
 from ..models.user import UserRole
 
 
-class LangSmithCallbackHandler(AsyncCallbackHandler):
-    """Custom callback handler for LangSmith monitoring"""
+class OpenSourceCallbackHandler(AsyncCallbackHandler):
+    """Custom callback handler for open-source monitoring"""
     
     def __init__(self):
         super().__init__()
         self.start_time = None
         self.metrics = {}
+        self.monitoring = get_monitoring_service()
     
     async def on_chain_start(self, serialized: Dict[str, Any], inputs: Dict[str, Any], **kwargs):
         self.start_time = datetime.now()
@@ -42,7 +40,8 @@ class LangSmithCallbackHandler(AsyncCallbackHandler):
     
     async def on_chain_end(self, outputs: Dict[str, Any], **kwargs):
         if self.start_time:
-            self.metrics["duration"] = (datetime.now() - self.start_time).total_seconds()
+            duration = (datetime.now() - self.start_time).total_seconds()
+            self.metrics["duration"] = duration
             self.metrics["outputs"] = outputs
 
 
@@ -100,7 +99,7 @@ Relevance Score: {1 - result.get('distance', 0):.2f}
 
 
 class WebSearchTool(BaseTool):
-    """Tool for web search augmentation"""
+    """Tool for web search augmentation using open-source search"""
     
     name = "web_search"
     description = """
@@ -112,18 +111,19 @@ class WebSearchTool(BaseTool):
     
     def __init__(self):
         super().__init__()
-        self.tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY) if settings.TAVILY_API_KEY else None
+        self.search_service = get_search_service()
     
     async def _arun(self, query: str) -> str:
         """Async implementation of web search"""
-        if not self.tavily_client:
-            return "Web search is not available. Please configure TAVILY_API_KEY."
+        if not self.search_service.is_available():
+            return "Web search is not available. No search engines configured."
         
         try:
-            response = self.tavily_client.search(
+            response = await self.search_service.search(
                 query=query,
-                search_depth="advanced",
-                max_results=3
+                max_results=settings.WEB_SEARCH_MAX_RESULTS,
+                extract_content=settings.EXTRACT_ARTICLE_CONTENT,
+                preferred_engine=settings.WEB_SEARCH_ENGINE
             )
             
             if not response.get('results'):
@@ -132,11 +132,16 @@ class WebSearchTool(BaseTool):
             # Format results
             formatted_results = []
             for i, result in enumerate(response['results'], 1):
+                content = result.get('content', 'No content')
+                if len(content) > 400:
+                    content = content[:400] + "..."
+                
                 formatted_results.append(f"""
 Web Result {i}:
 Title: {result.get('title', 'No title')}
-Content: {result.get('content', 'No content')[:400]}...
+Content: {content}
 URL: {result.get('url', 'No URL')}
+Source: {result.get('source', 'Unknown')}
 """)
             
             return "\n".join(formatted_results)
@@ -194,11 +199,12 @@ class AgenticRAGPipeline:
     """Main agentic RAG pipeline orchestrator"""
     
     def __init__(self):
-        # Initialize LLM - fallback to open source if OpenAI not available
-        self.llm = self._initialize_llm()
+        # Initialize open-source LLM
+        self.llm = get_open_source_llm()
         
         self.ingestion_pipeline = DocumentIngestionPipeline()
-        self.callback_handler = LangSmithCallbackHandler()
+        self.callback_handler = OpenSourceCallbackHandler()
+        self.monitoring = get_monitoring_service()
         
         # Memory for conversation context
         self.memory = ConversationBufferWindowMemory(
@@ -207,44 +213,10 @@ class AgenticRAGPipeline:
             return_messages=True
         )
         
-        # Initialize embedding service
+        # Initialize services
         self.embedding_service = get_embedding_service()
+        self.search_service = get_search_service()
     
-    def _initialize_llm(self):
-        """Initialize the language model with fallback options"""
-        try:
-            if settings.OPENAI_API_KEY:
-                logger.info("Initializing OpenAI GPT-4 model")
-                return ChatOpenAI(
-                    model="gpt-4-turbo-preview",
-                    temperature=0.1,
-                    openai_api_key=settings.OPENAI_API_KEY
-                )
-            else:
-                logger.warning("OpenAI API key not available. Using fallback LLM configuration.")
-                # You could add other LLM providers here (Anthropic, Cohere, etc.)
-                # For now, we'll still try to use OpenAI with error handling
-                return ChatOpenAI(
-                    model="gpt-3.5-turbo",
-                    temperature=0.1,
-                    openai_api_key="dummy-key"  # This will fail gracefully
-                )
-        except Exception as e:
-            logger.error(f"Failed to initialize LLM: {str(e)}")
-            # Return a mock LLM for development/testing
-            return self._create_mock_llm()
-    
-    def _create_mock_llm(self):
-        """Create a mock LLM for testing when no API key is available"""
-        from langchain.llms.fake import FakeListLLM
-        
-        responses = [
-            "I apologize, but I'm currently running in demo mode without access to a language model. Please configure your OpenAI API key or another LLM provider to get intelligent responses.",
-            "This is a mock response. Please set up your language model configuration to get real AI assistance.",
-            "Demo mode: I would normally provide an intelligent response here, but no LLM is configured."
-        ]
-        
-        return FakeListLLM(responses=responses)
     
     def _create_agent_tools(self, user_role: str, department: str = None) -> List[BaseTool]:
         """Create tools for the agent based on user role"""
@@ -253,14 +225,14 @@ class AgenticRAGPipeline:
             KnowledgeAnalysisTool(self.llm)
         ]
         
-        # Add web search tool if API key is available
-        if settings.TAVILY_API_KEY:
+        # Add web search tool if available
+        if self.search_service.is_available():
             tools.append(WebSearchTool())
         
         return tools
     
-    def _create_agent_prompt(self, user_role: str) -> ChatPromptTemplate:
-        """Create role-specific agent prompt"""
+    def _create_agent_prompt(self, user_role: str) -> PromptTemplate:
+        """Create role-specific agent prompt for ReAct agent"""
         
         role_context = {
             "employee": "You are an AI assistant helping an employee. Provide helpful information while respecting access controls.",
@@ -268,46 +240,59 @@ class AgenticRAGPipeline:
             "admin": "You are an AI assistant helping an administrator. You have full access to all information and can provide comprehensive insights."
         }
         
-        system_message = f"""
+        template = f"""
         {role_context.get(user_role, role_context["employee"])}
         
         You have access to the following tools:
-        - document_retrieval: Search internal company documents and knowledge base
-        - web_search: Search the web for current information (if available)
-        - knowledge_analysis: Analyze and synthesize information from multiple sources
+        {{tools}}
+        
+        Use the following format:
+        
+        Question: the input question you must answer
+        Thought: you should always think about what to do
+        Action: the action to take, should be one of [{{tool_names}}]
+        Action Input: the input to the action
+        Observation: the result of the action
+        ... (this Thought/Action/Action Input/Observation can repeat N times)
+        Thought: I now know the final answer
+        Final Answer: the final answer to the original input question
         
         Guidelines:
-        1. Always try to find information in internal documents first
-        2. Use web search only when internal information is insufficient or outdated
-        3. Provide accurate, well-sourced answers
-        4. Respect role-based access controls
-        5. If you cannot find information, clearly state this
-        6. Synthesize information from multiple sources when needed
+        1. Always try to find information in internal documents first using document_retrieval
+        2. Use web_search only when internal information is insufficient or outdated
+        3. Use knowledge_analysis to synthesize information from multiple sources
+        4. Provide accurate, well-sourced answers
+        5. Respect role-based access controls
+        6. If you cannot find information, clearly state this
         7. Always cite your sources
         
-        When answering:
+        When providing your Final Answer:
         - Be concise but comprehensive
         - Structure your response clearly
         - Highlight key points
         - Provide actionable insights when appropriate
+        - Include source citations
+        
+        Question: {{input}}
+        Thought: {{agent_scratchpad}}
         """
         
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", system_message),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad")
-        ])
-        
-        return prompt
+        return PromptTemplate(
+            template=template,
+            input_variables=["input", "agent_scratchpad"],
+            partial_variables={
+                "tools": "{{tools}}",
+                "tool_names": "{{tool_names}}"
+            }
+        )
     
     async def create_agent_executor(self, user_role: str, department: str = None) -> AgentExecutor:
         """Create agent executor for the user"""
         tools = self._create_agent_tools(user_role, department)
         prompt = self._create_agent_prompt(user_role)
         
-        # Create agent
-        agent = create_openai_functions_agent(
+        # Create ReAct agent
+        agent = create_react_agent(
             llm=self.llm,
             tools=tools,
             prompt=prompt
@@ -317,11 +302,11 @@ class AgenticRAGPipeline:
         executor = AgentExecutor(
             agent=agent,
             tools=tools,
-            memory=self.memory,
             verbose=True,
             max_iterations=5,
             max_execution_time=60,
-            callbacks=[self.callback_handler]
+            callbacks=[self.callback_handler],
+            handle_parsing_errors=True
         )
         
         return executor
@@ -329,48 +314,61 @@ class AgenticRAGPipeline:
     async def process_query(self, query: str, user_role: str, department: str = None, 
                           use_web_search: bool = False) -> Dict[str, Any]:
         """Process a user query through the agentic RAG pipeline"""
-        start_time = datetime.now()
         
-        try:
-            # Create agent executor
-            executor = await self.create_agent_executor(user_role, department)
-            
-            # Prepare input
-            agent_input = {
-                "input": query,
-                "use_web_search": use_web_search
-            }
-            
-            # Execute agent
-            result = await executor.ainvoke(agent_input)
-            
-            # Calculate processing time
-            processing_time = (datetime.now() - start_time).total_seconds()
-            
-            # Extract sources from agent execution
-            sources = self._extract_sources_from_result(result)
-            
-            return {
-                "answer": result["output"],
-                "sources": sources,
-                "confidence_score": self._calculate_confidence_score(result),
-                "processing_time": processing_time,
-                "user_role": user_role,
-                "department": department,
-                "used_web_search": use_web_search,
-                "status": "success"
-            }
-            
-        except Exception as e:
-            processing_time = (datetime.now() - start_time).total_seconds()
-            return {
-                "answer": f"I apologize, but I encountered an error processing your query: {str(e)}",
-                "sources": [],
-                "confidence_score": 0.0,
-                "processing_time": processing_time,
-                "status": "error",
-                "error": str(e)
-            }
+        # Start monitoring
+        async with self.monitoring.monitor_operation(
+            name="query_processing",
+            run_type="query",
+            inputs={"query": query, "user_role": user_role, "use_web_search": use_web_search},
+            metadata={"user_role": user_role, "department": department},
+            user_role=user_role
+        ) as run:
+            try:
+                # Create agent executor
+                executor = await self.create_agent_executor(user_role, department)
+                
+                # Prepare input
+                agent_input = {
+                    "input": query,
+                    "use_web_search": use_web_search
+                }
+                
+                # Execute agent
+                result = await executor.ainvoke(agent_input)
+                
+                # Extract sources from agent execution
+                sources = self._extract_sources_from_result(result)
+                
+                response = {
+                    "answer": result["output"],
+                    "sources": sources,
+                    "confidence_score": self._calculate_confidence_score(result),
+                    "processing_time": 0,  # Will be set by monitoring
+                    "user_role": user_role,
+                    "department": department,
+                    "used_web_search": use_web_search,
+                    "status": "success"
+                }
+                
+                # Update run with outputs
+                run.outputs = response
+                
+                return response
+                
+            except Exception as e:
+                error_response = {
+                    "answer": f"I apologize, but I encountered an error processing your query: {str(e)}",
+                    "sources": [],
+                    "confidence_score": 0.0,
+                    "processing_time": 0,
+                    "status": "error",
+                    "error": str(e)
+                }
+                
+                # Update run with error
+                run.outputs = error_response
+                
+                return error_response
     
     def _extract_sources_from_result(self, result: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract source information from agent result"""

@@ -21,7 +21,7 @@ COPY backend/app ./app
 COPY .env.example .env
 
 # Create necessary directories
-RUN mkdir -p /app/data/documents /app/data/chroma_db /app/data/embeddings /app/data/embeddings/sentence_transformers
+RUN mkdir -p /app/data/documents /app/data/chroma_db /app/data/embeddings /app/data/embeddings/sentence_transformers /app/data/llm_models /app/data/monitoring
 
 # Expose port
 EXPOSE 8000

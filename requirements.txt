@@ -5,22 +5,32 @@ python-multipart==0.0.6
 
 # LangChain and AI/ML
 langchain==0.1.0
-langchain-openai==0.0.2
 langchain-community==0.0.10
 langchain-huggingface==0.0.1
-openai==1.6.1
 tiktoken==0.5.2
 
-# Open Source Embeddings
+# Open Source LLMs and Embeddings
 sentence-transformers==2.2.2
 transformers==4.36.2
 torch==2.1.2
 accelerate==0.25.0
 huggingface-hub==0.19.4
+bitsandbytes==0.41.3
+optimum==1.16.1
 
-# Vector Database and Embeddings
+# Local LLM Inference
+ollama==0.1.7
+llama-cpp-python==0.2.20
+ctransformers==0.2.27
+
+# Open Source Web Search
+duckduckgo-search==3.9.6
+requests-html==0.10.0
+beautifulsoup4==4.12.2
+newspaper3k==0.2.8
+
+# Vector Database (Open Source)
 chromadb==0.4.18
-pinecone-client==2.2.4
 faiss-cpu==1.7.4
 
 # LlamaIndex
@@ -43,12 +53,10 @@ psycopg2-binary==2.9.9
 streamlit==1.29.0
 streamlit-authenticator==0.2.3
 
-# Web Search and External APIs
-tavily-python==0.3.3
+# Web Requests
 requests==2.31.0
 
-# Monitoring and Observability
-langsmith==0.0.69
+# Monitoring and Observability (Open Source)
 prometheus-client==0.19.0
 
 # Utilities

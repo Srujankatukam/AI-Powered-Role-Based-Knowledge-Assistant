@@ -23,11 +23,27 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
     
-    # OpenAI (Optional - for GPT models only)
+    # OpenAI (Optional - only needed for GPT models)
     OPENAI_API_KEY: Optional[str] = None
     
+    # LLM Configuration (Open Source)
+    LLM_TYPE: str = "huggingface"  # Options: "huggingface", "ollama", "llama_cpp"
+    LLM_MODEL_NAME: str = "microsoft/DialoGPT-medium"  # Default HuggingFace model
+    LLM_DEVICE: str = "cpu"  # Options: "cpu", "cuda", "mps"
+    LLM_TEMPERATURE: float = 0.7
+    LLM_MAX_LENGTH: int = 512
+    LLM_USE_QUANTIZATION: bool = False
+    
+    # Ollama Configuration
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "llama2:7b"
+    
+    # Llama.cpp Configuration
+    LLAMA_CPP_MODEL_PATH: str = "./data/llm_models/llama-2-7b-chat.gguf"
+    LLAMA_CPP_N_CTX: int = 2048
+    
     # Embedding Model Configuration
-    EMBEDDING_MODEL_TYPE: str = "sentence-transformers"  # Options: "openai", "sentence-transformers", "huggingface"
+    EMBEDDING_MODEL_TYPE: str = "sentence-transformers"  # Options: "sentence-transformers", "huggingface"
     EMBEDDING_MODEL_NAME: str = "all-MiniLM-L6-v2"  # Default Sentence Transformers model
     HUGGINGFACE_MODEL_NAME: str = "sentence-transformers/all-MiniLM-L6-v2"  # For HuggingFace models
     EMBEDDING_DEVICE: str = "cpu"  # Options: "cpu", "cuda", "mps"
@@ -45,14 +61,16 @@ class Settings(BaseSettings):
     PINECONE_ENVIRONMENT: Optional[str] = None
     PINECONE_INDEX_NAME: str = "knowledge-assistant"
     
-    # Web Search
-    TAVILY_API_KEY: Optional[str] = None
+    # Web Search (Open Source)
+    WEB_SEARCH_ENGINE: str = "duckduckgo"  # Options: "duckduckgo", "google", "bing"
+    WEB_SEARCH_MAX_RESULTS: int = 5
+    WEB_SEARCH_TIMEOUT: int = 10
+    EXTRACT_ARTICLE_CONTENT: bool = False
     
-    # LangSmith
-    LANGCHAIN_TRACING_V2: bool = True
-    LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
-    LANGCHAIN_API_KEY: Optional[str] = None
-    LANGCHAIN_PROJECT: str = "knowledge-assistant"
+    # Monitoring (Open Source)
+    ENABLE_MONITORING: bool = True
+    MONITORING_DB_PATH: str = "./data/monitoring.db"
+    PROMETHEUS_METRICS_ENABLED: bool = True
     
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = [
