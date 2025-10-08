@@ -23,8 +23,15 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
     
-    # OpenAI
-    OPENAI_API_KEY: str
+    # OpenAI (Optional - for GPT models only)
+    OPENAI_API_KEY: Optional[str] = None
+    
+    # Embedding Model Configuration
+    EMBEDDING_MODEL_TYPE: str = "sentence-transformers"  # Options: "openai", "sentence-transformers", "huggingface"
+    EMBEDDING_MODEL_NAME: str = "all-MiniLM-L6-v2"  # Default Sentence Transformers model
+    HUGGINGFACE_MODEL_NAME: str = "sentence-transformers/all-MiniLM-L6-v2"  # For HuggingFace models
+    EMBEDDING_DEVICE: str = "cpu"  # Options: "cpu", "cuda", "mps"
+    EMBEDDING_BATCH_SIZE: int = 32
     
     # Azure Key Vault
     AZURE_CLIENT_ID: Optional[str] = None

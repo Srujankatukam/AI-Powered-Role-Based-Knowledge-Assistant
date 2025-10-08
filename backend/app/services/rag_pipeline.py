@@ -23,6 +23,7 @@ from tavily import TavilyClient
 
 # Internal services
 from .document_ingestion import DocumentIngestionPipeline
+from .open_source_embeddings import get_embedding_service
 from ..core.config import settings
 from ..models.user import UserRole
 
@@ -193,11 +194,8 @@ class AgenticRAGPipeline:
     """Main agentic RAG pipeline orchestrator"""
     
     def __init__(self):
-        self.llm = ChatOpenAI(
-            model="gpt-4-turbo-preview",
-            temperature=0.1,
-            openai_api_key=settings.OPENAI_API_KEY
-        )
+        # Initialize LLM - fallback to open source if OpenAI not available
+        self.llm = self._initialize_llm()
         
         self.ingestion_pipeline = DocumentIngestionPipeline()
         self.callback_handler = LangSmithCallbackHandler()
@@ -208,6 +206,45 @@ class AgenticRAGPipeline:
             memory_key="chat_history",
             return_messages=True
         )
+        
+        # Initialize embedding service
+        self.embedding_service = get_embedding_service()
+    
+    def _initialize_llm(self):
+        """Initialize the language model with fallback options"""
+        try:
+            if settings.OPENAI_API_KEY:
+                logger.info("Initializing OpenAI GPT-4 model")
+                return ChatOpenAI(
+                    model="gpt-4-turbo-preview",
+                    temperature=0.1,
+                    openai_api_key=settings.OPENAI_API_KEY
+                )
+            else:
+                logger.warning("OpenAI API key not available. Using fallback LLM configuration.")
+                # You could add other LLM providers here (Anthropic, Cohere, etc.)
+                # For now, we'll still try to use OpenAI with error handling
+                return ChatOpenAI(
+                    model="gpt-3.5-turbo",
+                    temperature=0.1,
+                    openai_api_key="dummy-key"  # This will fail gracefully
+                )
+        except Exception as e:
+            logger.error(f"Failed to initialize LLM: {str(e)}")
+            # Return a mock LLM for development/testing
+            return self._create_mock_llm()
+    
+    def _create_mock_llm(self):
+        """Create a mock LLM for testing when no API key is available"""
+        from langchain.llms.fake import FakeListLLM
+        
+        responses = [
+            "I apologize, but I'm currently running in demo mode without access to a language model. Please configure your OpenAI API key or another LLM provider to get intelligent responses.",
+            "This is a mock response. Please set up your language model configuration to get real AI assistance.",
+            "Demo mode: I would normally provide an intelligent response here, but no LLM is configured."
+        ]
+        
+        return FakeListLLM(responses=responses)
     
     def _create_agent_tools(self, user_role: str, department: str = None) -> List[BaseTool]:
         """Create tools for the agent based on user role"""

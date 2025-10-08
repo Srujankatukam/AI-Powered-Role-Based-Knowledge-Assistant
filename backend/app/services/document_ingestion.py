@@ -16,8 +16,10 @@ import pandas as pd
 
 # LangChain and embeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
 from langchain.schema import Document as LangChainDocument
+
+# Open source embeddings
+from .open_source_embeddings import get_embedding_service
 
 # Vector stores
 from langchain_community.vectorstores import Chroma
@@ -151,29 +153,43 @@ class TextChunker:
 
 
 class EmbeddingService:
-    """Handles document embeddings using OpenAI"""
+    """Handles document embeddings using open-source models"""
     
     def __init__(self):
-        self.embeddings = OpenAIEmbeddings(
-            openai_api_key=settings.OPENAI_API_KEY,
-            model="text-embedding-ada-002"
-        )
+        self.embeddings = get_embedding_service()
+        logger.info(f"Initialized embedding service: {type(self.embeddings).__name__}")
+        
+        # Get model info for logging
+        if hasattr(self.embeddings, 'get_model_info'):
+            model_info = self.embeddings.get_model_info()
+            logger.info(f"Embedding model info: {model_info}")
     
     async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings for a list of texts"""
         try:
+            logger.info(f"Generating embeddings for {len(texts)} texts")
             embeddings = await self.embeddings.aembed_documents(texts)
+            logger.info(f"Successfully generated {len(embeddings)} embeddings")
             return embeddings
         except Exception as e:
+            logger.error(f"Error generating embeddings: {str(e)}")
             raise Exception(f"Error generating embeddings: {str(e)}")
     
     async def generate_query_embedding(self, query: str) -> List[float]:
         """Generate embedding for a single query"""
         try:
             embedding = await self.embeddings.aembed_query(query)
+            logger.debug(f"Generated query embedding with dimension: {len(embedding)}")
             return embedding
         except Exception as e:
+            logger.error(f"Error generating query embedding: {str(e)}")
             raise Exception(f"Error generating query embedding: {str(e)}")
+    
+    def get_model_info(self) -> Dict[str, Any]:
+        """Get information about the embedding model"""
+        if hasattr(self.embeddings, 'get_model_info'):
+            return self.embeddings.get_model_info()
+        return {"model_type": type(self.embeddings).__name__}
 
 
 class VectorStoreService:

@@ -7,8 +7,16 @@ python-multipart==0.0.6
 langchain==0.1.0
 langchain-openai==0.0.2
 langchain-community==0.0.10
+langchain-huggingface==0.0.1
 openai==1.6.1
 tiktoken==0.5.2
+
+# Open Source Embeddings
+sentence-transformers==2.2.2
+transformers==4.36.2
+torch==2.1.2
+accelerate==0.25.0
+huggingface-hub==0.19.4
 
 # Vector Database and Embeddings
 chromadb==0.4.18

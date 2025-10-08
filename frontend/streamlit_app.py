@@ -510,6 +510,43 @@ def system_status():
             vector_status = status.get("vector_database", {})
             st.markdown(f"**Status:** {vector_status.get('status', 'Unknown')}")
             st.markdown(f"**Collection:** {vector_status.get('collection_name', 'Unknown')}")
+            
+            st.markdown("#### Embedding Service")
+            embedding_status = status.get("embedding_service", {})
+            st.markdown(f"**Model:** {embedding_status.get('model_name', 'Unknown')}")
+            st.markdown(f"**Device:** {embedding_status.get('device', 'Unknown')}")
+            if 'embedding_dimension' in embedding_status:
+                st.markdown(f"**Dimension:** {embedding_status['embedding_dimension']}")
+        
+        # Embedding Model Management (Admin only)
+        if user_role == "admin":
+            st.markdown("---")
+            st.markdown("### Embedding Model Management")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("View Available Models"):
+                    models_info = st.session_state.api_client.session.get(
+                        f"{st.session_state.api_client.base_url}/api/v1/admin/embedding-models"
+                    )
+                    if models_info.status_code == 200:
+                        models_data = models_info.json()
+                        st.json(models_data)
+                    else:
+                        st.error("Failed to fetch model information")
+            
+            with col2:
+                if st.button("Benchmark Current Model"):
+                    benchmark_result = st.session_state.api_client.session.get(
+                        f"{st.session_state.api_client.base_url}/api/v1/admin/embedding-models/benchmark"
+                    )
+                    if benchmark_result.status_code == 200:
+                        benchmark_data = benchmark_result.json()
+                        st.success("Benchmark completed!")
+                        st.json(benchmark_data)
+                    else:
+                        st.error("Benchmark failed")
         
         # Refresh button
         if st.button("Refresh Status"):

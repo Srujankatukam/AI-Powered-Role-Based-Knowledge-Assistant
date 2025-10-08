@@ -9,6 +9,7 @@ from ...core.database import get_database
 from ...core.security import require_admin, require_manager_or_above, PermissionChecker
 from ...models.user import User, UserInDB, UserCreate, UserUpdate, UserRole
 from ...services.azure_keyvault import secret_manager
+from ...services.open_source_embeddings import EmbeddingServiceFactory, get_embedding_service
 
 router = APIRouter()
 
@@ -133,6 +134,12 @@ async def get_system_status(
         from ...services.document_ingestion import VectorStoreService
         vector_store = VectorStoreService()
         
+        # Check embedding service status
+        embedding_service = get_embedding_service()
+        embedding_info = {"status": "unknown"}
+        if hasattr(embedding_service, 'get_model_info'):
+            embedding_info = embedding_service.get_model_info()
+        
         # Get document statistics
         from ...models.document import Document
         from ...core.database import SessionLocal
@@ -151,6 +158,7 @@ async def get_system_status(
                 "status": "connected",
                 "collection_name": vector_store.collection_name
             },
+            "embedding_service": embedding_info,
             "documents": {
                 "total": total_documents,
                 "indexed": indexed_documents,
@@ -239,4 +247,126 @@ async def validate_secrets(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error validating secrets: {str(e)}"
+        )
+
+
+@router.get("/embedding-models")
+async def get_available_embedding_models(
+    current_user: User = Depends(require_admin())
+):
+    """Get available embedding models"""
+    
+    try:
+        available_models = EmbeddingServiceFactory.get_available_models()
+        current_service = get_embedding_service()
+        current_info = {"status": "unknown"}
+        
+        if hasattr(current_service, 'get_model_info'):
+            current_info = current_service.get_model_info()
+        
+        return {
+            "current_model": current_info,
+            "available_models": available_models,
+            "current_config": {
+                "embedding_model_type": settings.EMBEDDING_MODEL_TYPE,
+                "embedding_model_name": settings.EMBEDDING_MODEL_NAME,
+                "embedding_device": settings.EMBEDDING_DEVICE,
+                "embedding_batch_size": settings.EMBEDDING_BATCH_SIZE
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving embedding models: {str(e)}"
+        )
+
+
+@router.post("/embedding-models/reload")
+async def reload_embedding_service(
+    current_user: User = Depends(require_admin())
+):
+    """Reload the embedding service (useful after configuration changes)"""
+    
+    try:
+        from ...services.open_source_embeddings import reset_embedding_service
+        
+        # Reset the global embedding service
+        reset_embedding_service()
+        
+        # Get new service info
+        new_service = get_embedding_service()
+        service_info = {"status": "reloaded"}
+        
+        if hasattr(new_service, 'get_model_info'):
+            service_info = new_service.get_model_info()
+        
+        return {
+            "status": "success",
+            "message": "Embedding service reloaded successfully",
+            "new_service_info": service_info
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error reloading embedding service: {str(e)}"
+        )
+
+
+@router.get("/embedding-models/benchmark")
+async def benchmark_embedding_models(
+    current_user: User = Depends(require_admin())
+):
+    """Benchmark current embedding model performance"""
+    
+    try:
+        import time
+        
+        embedding_service = get_embedding_service()
+        
+        # Test texts for benchmarking
+        test_texts = [
+            "This is a test document for benchmarking embedding performance.",
+            "Machine learning and artificial intelligence are transforming industries.",
+            "The quick brown fox jumps over the lazy dog.",
+            "Natural language processing enables computers to understand human language.",
+            "Vector databases store and retrieve high-dimensional embeddings efficiently."
+        ]
+        
+        # Benchmark document embedding
+        start_time = time.time()
+        doc_embeddings = await embedding_service.aembed_documents(test_texts)
+        doc_time = time.time() - start_time
+        
+        # Benchmark query embedding
+        start_time = time.time()
+        query_embedding = await embedding_service.aembed_query("test query")
+        query_time = time.time() - start_time
+        
+        # Get model info
+        model_info = {"status": "unknown"}
+        if hasattr(embedding_service, 'get_model_info'):
+            model_info = embedding_service.get_model_info()
+        
+        return {
+            "model_info": model_info,
+            "benchmark_results": {
+                "document_embedding": {
+                    "texts_processed": len(test_texts),
+                    "total_time": doc_time,
+                    "time_per_text": doc_time / len(test_texts),
+                    "embedding_dimension": len(doc_embeddings[0]) if doc_embeddings else 0
+                },
+                "query_embedding": {
+                    "processing_time": query_time,
+                    "embedding_dimension": len(query_embedding) if query_embedding else 0
+                }
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error benchmarking embedding models: {str(e)}"
         )

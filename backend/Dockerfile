@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
@@ -20,7 +21,7 @@ COPY backend/app ./app
 COPY .env.example .env
 
 # Create necessary directories
-RUN mkdir -p /app/data/documents /app/data/chroma_db /app/data/embeddings
+RUN mkdir -p /app/data/documents /app/data/chroma_db /app/data/embeddings /app/data/embeddings/sentence_transformers
 
 # Expose port
 EXPOSE 8000

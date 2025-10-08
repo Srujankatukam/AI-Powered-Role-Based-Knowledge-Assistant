@@ -22,12 +22,13 @@ An enterprise-grade AI assistant built with LangChain, FastAPI, and Streamlit th
 
 ### 📄 **Document Management**
 - **Multi-Format Support**: PDF, DOCX, TXT, and Markdown files
-- **Automated Processing**: OpenAI embeddings with ChromaDB vector storage
+- **Automated Processing**: Open-source embeddings with ChromaDB vector storage
 - **Smart Chunking**: Optimized text segmentation for better retrieval
 - **Access Control**: Department and role-based document access
 
 ### 🔍 **Advanced Search & Retrieval**
-- **Vector Similarity Search**: Semantic search using OpenAI embeddings
+- **Vector Similarity Search**: Semantic search using open-source embeddings (Sentence Transformers)
+- **Multiple Embedding Models**: Support for various models (MiniLM, MPNet, DistilRoBERTa)
 - **Web Search Integration**: Tavily API for current information augmentation
 - **Hybrid Approach**: Combines internal knowledge with external sources
 
@@ -60,7 +61,8 @@ graph TB
     subgraph "AI/ML Layer"
         LC[LangChain Agents]
         OAI[OpenAI GPT-4]
-        EMB[OpenAI Embeddings]
+        EMB[Open Source Embeddings]
+        ST[Sentence Transformers]
     end
     
     subgraph "Data Layer"
@@ -81,6 +83,7 @@ graph TB
     FA --> LC
     LC --> OAI
     LC --> EMB
+    EMB --> ST
     LC --> WS
     EMB --> VDB
     FA --> PG
@@ -94,7 +97,7 @@ graph TB
 ### Prerequisites
 - Python 3.11+
 - Docker & Docker Compose
-- OpenAI API Key
+- OpenAI API Key (Optional - only for GPT models)
 - PostgreSQL (for production)
 
 ### 1. Clone the Repository
@@ -152,10 +155,16 @@ Create a `.env` file with the following variables:
 
 ```env
 # Required API Keys
-OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here  # Optional - only for GPT models
 SECRET_KEY=your_jwt_secret_key_here
 TAVILY_API_KEY=your_tavily_api_key_here
 LANGCHAIN_API_KEY=your_langsmith_api_key_here
+
+# Embedding Model Configuration
+EMBEDDING_MODEL_TYPE=sentence-transformers
+EMBEDDING_MODEL_NAME=all-MiniLM-L6-v2
+EMBEDDING_DEVICE=cpu
+EMBEDDING_BATCH_SIZE=32
 
 # Database Configuration
 DATABASE_URL=postgresql://user:password@localhost:5432/knowledge_assistant
@@ -244,6 +253,34 @@ TOP_K_RETRIEVAL=5
 SIMILARITY_THRESHOLD=0.7
 ```
 
+### Embedding Models Configuration
+
+The system supports multiple open-source embedding models:
+
+#### Sentence Transformers Models
+- **all-MiniLM-L6-v2** (Default): Fast, good performance, 384 dimensions
+- **all-MiniLM-L12-v2**: Better performance, slower, 384 dimensions  
+- **all-mpnet-base-v2**: Best performance, slowest, 768 dimensions
+- **multi-qa-MiniLM-L6-cos-v1**: Optimized for Q&A tasks
+- **paraphrase-multilingual-MiniLM-L12-v2**: Multilingual support
+
+#### Configuration Examples
+```env
+# Fast and efficient (recommended for most use cases)
+EMBEDDING_MODEL_TYPE=sentence-transformers
+EMBEDDING_MODEL_NAME=all-MiniLM-L6-v2
+EMBEDDING_DEVICE=cpu
+
+# Best performance (requires more resources)
+EMBEDDING_MODEL_TYPE=sentence-transformers
+EMBEDDING_MODEL_NAME=all-mpnet-base-v2
+EMBEDDING_DEVICE=cuda
+
+# HuggingFace Transformers
+EMBEDDING_MODEL_TYPE=huggingface
+HUGGINGFACE_MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
+```
+
 ### RAG Pipeline Configuration
 ```python
 # LangChain settings
@@ -251,9 +288,12 @@ LANGCHAIN_TRACING_V2=true
 LANGCHAIN_PROJECT=knowledge-assistant
 LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
 
-# OpenAI settings
+# OpenAI settings (Optional)
 OPENAI_MODEL=gpt-4-turbo-preview
-EMBEDDING_MODEL=text-embedding-ada-002
+
+# Open Source Embedding Settings
+EMBEDDING_MODEL_TYPE=sentence-transformers
+EMBEDDING_MODEL_NAME=all-MiniLM-L6-v2
 ```
 
 ## 📊 Monitoring & Analytics
@@ -408,28 +448,43 @@ pre-commit run --all-files
 - `DELETE /api/v1/admin/users/{id}` - Delete user
 - `GET /api/v1/admin/system/status` - System status
 - `GET /api/v1/admin/analytics` - System analytics
+- `GET /api/v1/admin/embedding-models` - Available embedding models
+- `POST /api/v1/admin/embedding-models/reload` - Reload embedding service
+- `GET /api/v1/admin/embedding-models/benchmark` - Benchmark embedding performance
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
-#### 1. OpenAI API Errors
+#### 1. Embedding Model Issues
 ```bash
-# Check API key
-curl -H "Authorization: Bearer $OPENAI_API_KEY" https://api.openai.com/v1/models
+# Check current embedding model
+curl http://localhost:8000/api/v1/admin/embedding-models
 
-# Verify quota and billing
-# Visit https://platform.openai.com/usage
+# Benchmark embedding performance
+curl http://localhost:8000/api/v1/admin/embedding-models/benchmark
+
+# For GPU support, ensure CUDA is available
+python -c "import torch; print(torch.cuda.is_available())"
 ```
 
-#### 2. Vector Database Issues
+#### 2. OpenAI API Errors (if using GPT models)
+```bash
+# Check API key (optional - only needed for GPT models)
+curl -H "Authorization: Bearer $OPENAI_API_KEY" https://api.openai.com/v1/models
+
+# The system works without OpenAI for embeddings
+# Only GPT models require OpenAI API key
+```
+
+#### 3. Vector Database Issues
 ```bash
 # Reset ChromaDB
 rm -rf data/chroma_db
 # Restart application to recreate
 ```
 
-#### 3. Authentication Problems
+#### 4. Authentication Problems
 ```bash
 # Check JWT secret
 echo $SECRET_KEY
@@ -438,7 +493,7 @@ echo $SECRET_KEY
 # Default: 30 minutes
 ```
 
-#### 4. Document Processing Failures
+#### 5. Document Processing Failures
 ```bash
 # Check file permissions
 ls -la data/documents/
