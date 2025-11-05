@@ -33,11 +33,19 @@ async def test_llm():
     client = LLMClient()
     
     print("\n1. Testing LLM initialization...")
-    print(f"   API Key: {'Set' if client.api_key else 'NOT SET ❌'}")
-    print(f"   Model URL: {client.model_url}")
+    
+    if client.use_ollama:
+        print(f"   Mode: Ollama (Local)")
+        print(f"   Model: {client.ollama_model}")
+        print(f"   Base URL: {client.ollama_base_url}")
+    else:
+        print(f"   Mode: Hugging Face (Cloud)")
+        print(f"   API Key: {'Set' if hasattr(client, 'api_key') and client.api_key else 'NOT SET ❌'}")
+        print(f"   Model URL: {client.model_url}")
     
     print("\n2. Calling LLM with test data...")
     print(f"   Company: {test_data['company_name']}")
+    print(f"   Using: {'Ollama' if client.use_ollama else 'Hugging Face'}")
     
     try:
         result = await client.generate_audit_analysis(test_data)
