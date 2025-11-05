@@ -308,6 +308,17 @@ function sendToWebhook(data) {
     Logger.log("Response code: " + responseCode);
     Logger.log("Response body: " + responseBody);
     
+    // Try to parse and pretty-print JSON errors
+    if (responseCode !== 200) {
+      try {
+        var errorJson = JSON.parse(responseBody);
+        Logger.log("Detailed error:");
+        Logger.log(JSON.stringify(errorJson, null, 2));
+      } catch (e) {
+        // Not JSON, already logged above
+      }
+    }
+    
     if (responseCode === 200) {
       Logger.log("✅ Success!");
       return responseBody;
