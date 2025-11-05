@@ -83,7 +83,9 @@ async def process_audit_request(request_data: Dict[str, Any], request_id: str):
     3. Send email with PDF attachment
     """
     try:
-        logger.info(f"[{request_id}] Starting audit processing for {request_data['company_name']}")
+        company_name = request_data.get('company_name', 'Unknown')
+        logger.info(f"[{request_id}] Starting audit processing for {company_name}")
+        logger.info(f"[{request_id}] Company: {company_name}, Industry: {request_data.get('industry')}")
         
         # Step 1: Generate LLM Analysis
         logger.info(f"[{request_id}] Calling LLM for analysis...")
@@ -92,7 +94,27 @@ async def process_audit_request(request_data: Dict[str, Any], request_id: str):
         if not llm_response:
             raise Exception("LLM returned empty response")
         
+        # Log LLM response details
+        summary = llm_response.get('summary', {})
+        personalized_summary = summary.get('personalized_summary', '')
+        
         logger.info(f"[{request_id}] LLM analysis completed successfully")
+        logger.info(f"[{request_id}] Summary length: {len(personalized_summary)} chars")
+        logger.info(f"[{request_id}] Risk score: {summary.get('overall_risk_score')}")
+        logger.info(f"[{request_id}] Maturity: {summary.get('ai_maturity_level')}")
+        logger.info(f"[{request_id}] Sections: {len(llm_response.get('sections', []))}")
+        
+        # Check if it's a fallback response
+        if 'demonstrates foundational digital capabilities' in personalized_summary:
+            logger.warning(f"[{request_id}] ⚠️  Response appears to be FALLBACK (generic text)")
+        else:
+            logger.info(f"[{request_id}] ✓ Response appears customized")
+        
+        # Verify company name is in summary
+        if company_name.lower() in personalized_summary.lower():
+            logger.info(f"[{request_id}] ✓ Company name found in summary")
+        else:
+            logger.warning(f"[{request_id}] ⚠️  Company name NOT in summary - may be fallback")
         
         # Step 2: Generate PDF with visualizations
         logger.info(f"[{request_id}] Generating PDF report...")

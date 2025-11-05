@@ -108,11 +108,23 @@ class PDFBuilder:
             Path to generated PDF file
         """
         try:
+            company_name = company_data.get('company_name', 'Unknown')
+            logger.info(f"[{request_id}] Creating PDF for: {company_name}")
+            
+            # Log what we're working with
+            summary = llm_analysis.get('summary', {})
+            logger.info(f"[{request_id}] PDF data - Company: {company_name}")
+            logger.info(f"[{request_id}] PDF data - Industry: {company_data.get('industry')}")
+            logger.info(f"[{request_id}] PDF data - Summary chars: {len(summary.get('personalized_summary', ''))}")
+            logger.info(f"[{request_id}] PDF data - Sections: {len(llm_analysis.get('sections', []))}")
+            
             # Generate filename
             timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-            company_name_safe = company_data['company_name'].replace(' ', '_')[:30]
+            company_name_safe = company_name.replace(' ', '_').replace('/', '_')[:30]
             filename = f"AI_Audit_{company_name_safe}_{timestamp}.pdf"
             filepath = os.path.join(self.output_dir, filename)
+            
+            logger.info(f"[{request_id}] PDF filename: {filename}")
             
             # Create document
             doc = SimpleDocTemplate(
