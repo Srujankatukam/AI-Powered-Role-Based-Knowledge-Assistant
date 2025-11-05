@@ -59,7 +59,7 @@ class PDFBuilder:
         
         # Subtitle style
         self.styles.add(ParagraphStyle(
-            name='Subtitle',
+            name='CustomSubtitle',
             parent=self.styles['Normal'],
             fontSize=14,
             textColor=colors.HexColor('#666666'),
@@ -70,7 +70,7 @@ class PDFBuilder:
         
         # Section header
         self.styles.add(ParagraphStyle(
-            name='SectionHeader',
+            name='CustomSectionHeader',
             parent=self.styles['Heading2'],
             fontSize=16,
             textColor=colors.HexColor('#2c3e50'),
@@ -81,7 +81,7 @@ class PDFBuilder:
         
         # Body text
         self.styles.add(ParagraphStyle(
-            name='BodyText',
+            name='CustomBodyText',
             parent=self.styles['Normal'],
             fontSize=11,
             textColor=colors.HexColor('#333333'),
@@ -217,13 +217,13 @@ class PDFBuilder:
         # Section header
         content.append(Paragraph(
             "Executive Summary",
-            self.styles['SectionHeader']
+            self.styles['CustomSectionHeader']
         ))
         
         # Personalized summary
         content.append(Paragraph(
             summary.get('personalized_summary', 'No summary available.'),
-            self.styles['BodyText']
+            self.styles['CustomBodyText']
         ))
         
         content.append(Spacer(1, 0.2*inch))
@@ -259,7 +259,7 @@ class PDFBuilder:
         
         content.append(Paragraph(
             "AI Readiness Visualization",
-            self.styles['SectionHeader']
+            self.styles['CustomSectionHeader']
         ))
         
         sections = llm_analysis.get('sections', [])
@@ -267,7 +267,7 @@ class PDFBuilder:
         if not sections:
             content.append(Paragraph(
                 "No department data available for visualization.",
-                self.styles['BodyText']
+                self.styles['CustomBodyText']
             ))
             return content
         
@@ -433,12 +433,12 @@ class PDFBuilder:
         
         content.append(Paragraph(
             "Detailed Department Analysis",
-            self.styles['SectionHeader']
+            self.styles['CustomSectionHeader']
         ))
         
         content.append(Paragraph(
             "The following sections highlight specific drawbacks and limitations identified in each department:",
-            self.styles['BodyText']
+            self.styles['CustomBodyText']
         ))
         
         content.append(Spacer(1, 0.2*inch))
@@ -459,7 +459,7 @@ class PDFBuilder:
             if not drawbacks:
                 content.append(Paragraph(
                     "No significant drawbacks identified. This department demonstrates good AI maturity.",
-                    self.styles['BodyText']
+                    self.styles['CustomBodyText']
                 ))
             else:
                 # Create drawbacks list
@@ -469,12 +469,12 @@ class PDFBuilder:
                     
                     content.append(Paragraph(
                         f"<b>{i}. {title}</b>",
-                        self.styles['BodyText']
+                        self.styles['CustomBodyText']
                     ))
                     
                     content.append(Paragraph(
                         details,
-                        self.styles['BodyText']
+                        self.styles['CustomBodyText']
                     ))
                     
                     content.append(Spacer(1, 0.1*inch))
