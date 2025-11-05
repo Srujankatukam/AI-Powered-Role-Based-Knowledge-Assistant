@@ -1,6 +1,6 @@
 """
 LLM Client for Hugging Face API Integration
-Uses Mistral-7B-Instruct-v0.1 for audit analysis generation
+Uses Meta Llama 3 8B Instruct for audit analysis generation
 """
 
 import os
@@ -27,7 +27,7 @@ class LLMClient:
         self.api_key = os.getenv("HF_API_KEY")
         self.model_url = os.getenv(
             "HF_MODEL_URL",
-            "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+            "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
         )
         
         if not self.api_key:
@@ -103,10 +103,11 @@ class LLMClient:
             "inputs": prompt,
             "parameters": {
                 "max_new_tokens": 2048,
-                "temperature": 0.0,  # Deterministic output
+                "temperature": 0.1,  # Very low for consistency
                 "top_p": 0.9,
-                "do_sample": False,
-                "return_full_text": False
+                "do_sample": True,  # Llama 3 works better with sampling
+                "return_full_text": False,
+                "stop": ["<|eot_id|>", "<|end_of_text|>"]  # Llama 3 stop tokens
             }
         }
         

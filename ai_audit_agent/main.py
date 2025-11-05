@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # Initialize FastAPI app
 app = FastAPI(
     title="AI Audit Agent",
-    description="Automated AI Audit Report Generation and Delivery System",
+    description="Automated AI Audit Report Generation and Delivery System (Powered by Llama 3)",
     version="1.0.0"
 )
 

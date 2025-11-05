@@ -32,9 +32,11 @@ def get_audit_analysis_prompt(company_data: dict) -> str:
     
     departments_text = "\n".join(dept_details)
     
-    prompt = f"""You are an expert AI Business Auditor specializing in digital transformation and AI maturity assessment.
+    prompt = f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 
-Analyze the following company data and return ONLY valid JSON. Do not include any explanatory text before or after the JSON.
+You are an expert AI Business Auditor specializing in digital transformation and AI maturity assessment. You provide detailed, objective analysis in JSON format.<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+Analyze the following company data and return ONLY valid JSON. Do not include any explanatory text, markdown formatting, or code blocks - just the raw JSON object.
 
 COMPANY INFORMATION:
 - Company Name: {company_name}
@@ -82,7 +84,9 @@ ASSESSMENT CRITERIA:
 - Medium Maturity: Some digital tools, basic automation, limited analytics, reactive approach
 - High Maturity: Advanced automation, AI/ML integration, proactive analytics, modern infrastructure
 
-Now analyze the data and return ONLY the JSON response:"""
+Now analyze the data and return ONLY the JSON response:<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+"""
 
     return prompt
 
