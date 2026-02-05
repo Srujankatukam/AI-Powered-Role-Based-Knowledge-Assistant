@@ -1,5 +1,5 @@
 # 🤖 AI-Powered Role-Based Knowledge Assistant
-
+ 
 An enterprise-grade AI assistant built with LangChain, FastAPI, and Streamlit that provides secure, role-based access to organizational knowledge through an agentic RAG pipeline.
 
 ![Python](https://img.shields.io/badge/python-v3.11+-blue.svg)
