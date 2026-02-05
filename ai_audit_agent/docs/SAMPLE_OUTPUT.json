@@ -1,0 +1,78 @@
+{
+  "description": "Sample LLM output for AI Audit Analysis",
+  "example_response": {
+    "summary": {
+      "personalized_summary": "NovaTech Industries operates in the manufacturing sector with a large workforce of 201-1000 employees. The organization demonstrates foundational digital maturity but limited AI integration, particularly in leadership analytics, HR automation, and proactive customer engagement. While IT infrastructure shows good practices, manual processes dominate in critical business functions.",
+      "overall_risk_score": 68,
+      "ai_maturity_level": "Medium"
+    },
+    "sections": [
+      {
+        "section_name": "Leadership & Management",
+        "level": "Low",
+        "drawbacks": [
+          {
+            "title": "Outdated Performance Tracking",
+            "details": "Reliance on Excel spreadsheets prevents real-time analytics, collaborative decision-making, and automated reporting. This limits leadership's ability to respond quickly to market changes."
+          },
+          {
+            "title": "Reactive Competitor Analysis",
+            "details": "Quarterly competitor analysis indicates a reactive rather than proactive approach. Modern AI tools could enable continuous monitoring and predictive insights."
+          }
+        ]
+      },
+      {
+        "section_name": "Customer Engagement",
+        "level": "Medium",
+        "drawbacks": [
+          {
+            "title": "No Automated Feedback Loop",
+            "details": "Customer feedback is collected but not analyzed systematically. This represents a significant missed opportunity for data-driven product improvements and service optimization."
+          },
+          {
+            "title": "Slow Response Times",
+            "details": "Average response time of 12-24 hours for customer inquiries is suboptimal in today's instant-communication environment. AI-powered chatbots could reduce this significantly."
+          },
+          {
+            "title": "Manual Inquiry Handling",
+            "details": "Email and phone-based manual inquiry handling lacks scalability and prevents efficient categorization and prioritization of customer needs."
+          }
+        ]
+      },
+      {
+        "section_name": "Human Resources",
+        "level": "Low",
+        "drawbacks": [
+          {
+            "title": "Basic Recruitment Filtering",
+            "details": "Basic filtering for recruitment screening is time-consuming and may miss qualified candidates. AI-powered applicant tracking systems could improve both speed and quality of hires."
+          },
+          {
+            "title": "Manual Attendance Tracking",
+            "details": "Manual register-based attendance tracking is error-prone, time-intensive, and prevents real-time workforce analytics. This hinders effective resource allocation and productivity monitoring."
+          },
+          {
+            "title": "No Predictive HR Analytics",
+            "details": "Absence of AI-driven analytics prevents prediction of employee turnover, identification of skill gaps, and proactive talent management."
+          }
+        ]
+      },
+      {
+        "section_name": "IT & Technology",
+        "level": "High",
+        "drawbacks": [
+          {
+            "title": "Limited AI Integration",
+            "details": "While infrastructure is modern with dynamic website and scheduled backups, there's no evidence of AI/ML integration for predictive maintenance, security threat detection, or automated optimization."
+          }
+        ]
+      }
+    ]
+  },
+  "notes": {
+    "overall_risk_score": "Score from 0-100 where higher = more risk/less maturity. Score of 68 indicates moderate risk with significant room for AI adoption.",
+    "ai_maturity_level": "Can be Low, Medium, or High. 'Medium' indicates some digital tools but limited AI integration.",
+    "section_level": "Each department rated Low/Medium/High based on automation, AI adoption, and modern practices.",
+    "drawbacks": "Focus on identifying gaps and limitations, not on providing solutions. Each drawback includes title and detailed explanation."
+  }
+}

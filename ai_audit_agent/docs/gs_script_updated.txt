@@ -1,0 +1,391 @@
+/**
+ * Google Apps Script for AI Audit Agent - UPDATED VERSION
+ * Configured for your specific Google Sheet columns
+ * 
+ * SETUP INSTRUCTIONS:
+ * 1. Open your Google Sheet
+ * 2. Go to Extensions → Apps Script
+ * 3. Delete any existing code and paste this entire script
+ * 4. Replace YOUR_API_URL with your actual API endpoint
+ * 5. Save the script (Ctrl+S or Cmd+S)
+ * 6. Set up a trigger (see instructions at bottom)
+ */
+
+// ===== CONFIGURATION =====
+const WEBHOOK_URL = "https://your-domain.com/webhook/sheet-row";
+// For local testing: "http://your-local-ip:8000/webhook/sheet-row"
+
+// Optional: Add authentication token if you've secured your endpoint
+const AUTH_TOKEN = ""; // Leave empty if not using authentication
+
+// ===== MAIN FUNCTIONS =====
+
+/**
+ * Trigger function for form submissions
+ * Use this if your sheet is connected to a Google Form
+ */
+function onFormSubmit(e) {
+  try {
+    Logger.log("Form submission detected");
+    
+    var sheet = e.source.getActiveSheet();
+    var row = sheet.getLastRow();
+    var data = extractRowData(sheet, row);
+    
+    sendToWebhook(data);
+    
+    Logger.log("Data sent successfully");
+  } catch (error) {
+    Logger.log("Error in onFormSubmit: " + error.toString());
+  }
+}
+
+/**
+ * Trigger function for manual row additions
+ * Use this if you're manually adding rows to the sheet
+ */
+function onEdit(e) {
+  try {
+    var sheet = e.source.getActiveSheet();
+    var range = e.range;
+    
+    // Only trigger if enough columns were edited
+    if (range.getNumColumns() >= 5) {
+      Logger.log("Row edit detected");
+      
+      var row = range.getRow();
+      
+      // Skip header row
+      if (row <= 1) {
+        return;
+      }
+      
+      var data = extractRowData(sheet, row);
+      
+      // Only send if company name is filled
+      if (data.company_name && data.company_name.trim() !== "") {
+        sendToWebhook(data);
+        Logger.log("Data sent successfully for row " + row);
+      }
+    }
+  } catch (error) {
+    Logger.log("Error in onEdit: " + error.toString());
+  }
+}
+
+/**
+ * Manual trigger function for testing
+ * Run this manually to test with the last row
+ */
+function testWebhook() {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var lastRow = sheet.getLastRow();
+    
+    Logger.log("Testing with row: " + lastRow);
+    
+    var data = extractRowData(sheet, lastRow);
+    
+    Logger.log("Extracted data: " + JSON.stringify(data, null, 2));
+    
+    var response = sendToWebhook(data);
+    
+    Logger.log("Response: " + response);
+    Logger.log("✓ Test completed successfully!");
+  } catch (error) {
+    Logger.log("Error in testWebhook: " + error.toString());
+  }
+}
+
+// ===== HELPER FUNCTIONS =====
+
+/**
+ * Extract data from a specific row and structure it for the API
+ * Maps your exact column names to the required API format
+ */
+function extractRowData(sheet, rowNumber) {
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var rowData = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+  
+  // Map headers to values
+  var dataMap = {};
+  for (var i = 0; i < headers.length; i++) {
+    dataMap[headers[i]] = rowData[i] || "";  // Use empty string if null
+  }
+  
+  // Structure the data according to API requirements
+  var structuredData = {
+    company_name: dataMap["Company Name"] || "",
+    recipient_name: dataMap["Contact Person Name"] || "",
+    recipient_email: dataMap["Email Address"] || "",
+    industry: dataMap["Industry"] || "",
+    company_size: dataMap["Company Size"] || "",
+    annual_revenue_inr: dataMap["Annual Revenue"] || "",
+    departments: extractDepartments(dataMap)
+  };
+  
+  return structuredData;
+}
+
+/**
+ * Extract department data from the row
+ * Maps your question columns to department categories
+ */
+function extractDepartments(dataMap) {
+  var departments = {};
+  
+  // Leadership & Management
+  departments["Leadership & Management"] = {
+    "track_business_metrics": dataMap["How do you track business performance metrics?"] || "",
+    "competitor_analysis_frequency": dataMap["How often do you analyze competitor activities?"] || ""
+  };
+  
+  // Customer Engagement
+  departments["Customer Engagement"] = {
+    "inquiry_handling": dataMap["How do you handle customer inquiries?"] || "",
+    "avg_response_time": dataMap["Average response time to customer queries"] || ""
+  };
+  
+  // Human Resources
+  departments["Human Resources"] = {
+    "recruitment_screening": dataMap["How do you handle recruitment and screening?"] || "",
+    "attendance_tracking": dataMap["Employee attendance tracking method"] || ""
+  };
+  
+  // Sales & Marketing
+  departments["Sales & Marketing"] = {
+    "lead_management": dataMap["How do you manage leads and follow-ups?"] || "",
+    "sales_forecasting": dataMap["Do you use any sales forecasting?"] || "",
+    "proposal_generation": dataMap["How do you generate proposals/quotations?"] || ""
+  };
+  
+  // Operations
+  departments["Operations"] = {
+    "repetitive_tasks": dataMap["How are repetitive tasks currently handled?"] || "",
+    "process_documentation": dataMap["Process documentation and SOPs"] || ""
+  };
+  
+  // Inventory & Supply Chain
+  departments["Inventory & Supply Chain"] = {
+    "inventory_tracking": dataMap["How do you track inventory levels?"] || "",
+    "vendor_communication": dataMap["Vendor/supplier communication method"] || ""
+  };
+  
+  // Quality Control
+  departments["Quality Control"] = {
+    "quality_checks": dataMap["How do you perform quality checks?"] || "",
+    "defect_tracking": dataMap["Defect and complaint tracking"] || ""
+  };
+  
+  // Finance & Accounting
+  departments["Finance & Accounting"] = {
+    "invoice_management": dataMap["Invoice generation and management"] || "",
+    "expense_tracking": dataMap["Expense tracking and approval"] || ""
+  };
+  
+  // IT & Technology
+  departments["IT & Technology"] = {
+    "website": dataMap["Do you have a company website?"] || "",
+    "backup_security": dataMap["Data backup and security practices"] || ""
+  };
+  
+  return departments;
+}
+
+/**
+ * Send data to webhook endpoint
+ */
+function sendToWebhook(data) {
+  try {
+    var options = {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify(data),
+      muteHttpExceptions: true
+    };
+    
+    // Add authentication header if configured
+    if (AUTH_TOKEN) {
+      options.headers = {
+        "Authorization": "Bearer " + AUTH_TOKEN
+      };
+    }
+    
+    var response = UrlFetchApp.fetch(WEBHOOK_URL, options);
+    var responseCode = response.getResponseCode();
+    var responseBody = response.getContentText();
+    
+    if (responseCode === 200) {
+      Logger.log("✓ Success: " + responseBody);
+      
+      // Optional: Add a timestamp or status in the sheet
+      // var sheet = SpreadsheetApp.getActiveSheet();
+      // sheet.getRange(row, lastColumn + 1).setValue("Sent: " + new Date());
+      
+      return responseBody;
+    } else {
+      Logger.log("✗ Error: HTTP " + responseCode + " - " + responseBody);
+      throw new Error("HTTP " + responseCode + ": " + responseBody);
+    }
+  } catch (error) {
+    Logger.log("✗ Error sending to webhook: " + error.toString());
+    throw error;
+  }
+}
+
+// ===== UTILITY FUNCTIONS =====
+
+/**
+ * Display column mapping for verification
+ * Run this to see how your columns are mapped
+ */
+function showColumnMapping() {
+  var sheet = SpreadsheetApp.getActiveSheet();
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  
+  Logger.log("=== YOUR GOOGLE SHEET COLUMNS ===");
+  for (var i = 0; i < headers.length; i++) {
+    Logger.log((i + 1) + ". " + headers[i]);
+  }
+  
+  Logger.log("\n=== MAPPED TO DEPARTMENTS ===");
+  Logger.log("Leadership & Management:");
+  Logger.log("  - How do you track business performance metrics?");
+  Logger.log("  - How often do you analyze competitor activities?");
+  
+  Logger.log("\nCustomer Engagement:");
+  Logger.log("  - How do you handle customer inquiries?");
+  Logger.log("  - Average response time to customer queries");
+  
+  Logger.log("\nHuman Resources:");
+  Logger.log("  - How do you handle recruitment and screening?");
+  Logger.log("  - Employee attendance tracking method");
+  
+  Logger.log("\nSales & Marketing:");
+  Logger.log("  - How do you manage leads and follow-ups?");
+  Logger.log("  - Do you use any sales forecasting?");
+  Logger.log("  - How do you generate proposals/quotations?");
+  
+  Logger.log("\nOperations:");
+  Logger.log("  - How are repetitive tasks currently handled?");
+  Logger.log("  - Process documentation and SOPs");
+  
+  Logger.log("\nInventory & Supply Chain:");
+  Logger.log("  - How do you track inventory levels?");
+  Logger.log("  - Vendor/supplier communication method");
+  
+  Logger.log("\nQuality Control:");
+  Logger.log("  - How do you perform quality checks?");
+  Logger.log("  - Defect and complaint tracking");
+  
+  Logger.log("\nFinance & Accounting:");
+  Logger.log("  - Invoice generation and management");
+  Logger.log("  - Expense tracking and approval");
+  
+  Logger.log("\nIT & Technology:");
+  Logger.log("  - Do you have a company website?");
+  Logger.log("  - Data backup and security practices");
+}
+
+// ===== TRIGGER SETUP INSTRUCTIONS =====
+/*
+
+STEP-BY-STEP SETUP:
+
+1. PASTE THIS SCRIPT
+   - Delete any existing code in Apps Script editor
+   - Paste this entire script
+   - Click Save (disk icon or Ctrl+S)
+
+2. UPDATE WEBHOOK URL
+   - Find the line: const WEBHOOK_URL = "https://your-domain.com/webhook/sheet-row";
+   - Replace with your actual API URL
+   - Save again
+
+3. TEST THE SCRIPT
+   - Make sure you have at least one data row in your sheet (row 2+)
+   - In Apps Script editor, select "testWebhook" from the function dropdown
+   - Click Run (▶️ play button)
+   - Check Execution log (View → Logs)
+   - You should see "✓ Test completed successfully!"
+
+4. SET UP AUTOMATIC TRIGGER
+   - Click on clock icon (⏰ Triggers) in left sidebar
+   - Click "+ Add Trigger" button at bottom right
+   
+   Configure trigger:
+   - Choose which function to run: onEdit (for manual entry) or onFormSubmit (for form)
+   - Choose which deployment should run: Head
+   - Select event source: From spreadsheet
+   - Select event type: On edit (or On form submit if using form)
+   - Click Save
+   
+   - You'll be asked to authorize the script
+   - Review permissions and click "Allow"
+
+5. TEST THE TRIGGER
+   - Go back to your Google Sheet
+   - Edit any cell in a data row (row 2+)
+   - Or add a new row with data
+   - Check your API server logs to see if it received the data
+   - Check email for the generated report (arrives in ~60 seconds)
+
+6. VERIFY COLUMN MAPPING (Optional)
+   - In Apps Script editor, select "showColumnMapping" function
+   - Click Run
+   - View → Logs to see your column mapping
+
+TROUBLESHOOTING:
+
+Problem: Script doesn't run
+Solution: Make sure trigger is set up correctly (step 4)
+
+Problem: "Authorization required"
+Solution: Run testWebhook manually first, authorize the script
+
+Problem: "Cannot read property 'source'"
+Solution: Use onEdit instead of onFormSubmit if not using forms
+
+Problem: Wrong data sent
+Solution: Run showColumnMapping to verify column names match exactly
+
+Problem: Webhook fails
+Solution: 
+  - Check WEBHOOK_URL is correct
+  - Make sure API server is running and accessible
+  - Check Apps Script logs (View → Executions)
+
+YOUR COLUMN ORDER:
+1. Company Name
+2. Contact Person Name
+3. Email Address
+4. Industry
+5. Company Size
+6. Annual Revenue
+7. How do you track business performance metrics?
+8. How often do you analyze competitor activities?
+9. How do you handle customer inquiries?
+10. Average response time to customer queries
+11. How do you handle recruitment and screening?
+12. Employee attendance tracking method
+13. How do you manage leads and follow-ups?
+14. Do you use any sales forecasting?
+15. How do you generate proposals/quotations?
+16. How are repetitive tasks currently handled?
+17. Process documentation and SOPs
+18. How do you track inventory levels?
+19. Vendor/supplier communication method
+20. How do you perform quality checks?
+21. Defect and complaint tracking
+22. Invoice generation and management
+23. Expense tracking and approval
+24. Do you have a company website?
+25. Data backup and security practices
+
+NOTES:
+- Make sure column headers match EXACTLY (case-sensitive)
+- Empty cells are sent as empty strings
+- Only rows with Company Name filled will be processed
+- Header row (row 1) is never processed
+
+*/
