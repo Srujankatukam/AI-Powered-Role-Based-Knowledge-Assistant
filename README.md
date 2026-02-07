@@ -1,4 +1,4 @@
-# 🤖 AI-Powered Role-Based Knowledge Assistant  
+# 🤖 AI-Powered Role-Based Knowledge Assistant   
  
 An enterprise-grade AI assistant built with LangChain, FastAPI, and Streamlit that provides secure, role-based access to organizational knowledge through an agentic RAG pipeline.
  
