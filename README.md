@@ -7,7 +7,7 @@ An enterprise-grade AI assistant built with LangChain, FastAPI, and Streamlit th
 ![LangChain](https://img.shields.io/badge/LangChain-0.1.0-orange.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.29.0-red.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)  
- 
+  
 ## 🌟 Features   
   
 ### 🔐 **Role-Based Access Control (RBAC)**
