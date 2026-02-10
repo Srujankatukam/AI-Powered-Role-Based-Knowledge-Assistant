@@ -2,7 +2,7 @@
    
 An enterprise-grade AI assistant built with LangChain, FastAPI, and Streamlit that provides secure, role-based access to organizational knowledge through an agentic RAG pipeline.
   
-![Python](https://img.shields.io/badge/python-v3.11+-blue.svg) 
+![Python](https://img.shields.io/badge/python-v3.11+-blue.svg)  
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-green.svg) 
 ![LangChain](https://img.shields.io/badge/LangChain-0.1.0-orange.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.29.0-red.svg)
