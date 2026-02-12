@@ -10,7 +10,7 @@ An enterprise-grade AI assistant built with LangChain, FastAPI, and Streamlit th
   
 ## 🌟 Features    
   
-### 🔐 **Role-Based Access Control (RBAC)**
+### 🔐 **Role-Based Access Control (RBAC)** 
 - **Employee**: Access to general company documents and policies
 - **Manager**: Additional access to management-level information and team data
 - **Admin**: Full system access including user management and analytics
