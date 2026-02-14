@@ -1,0 +1,99 @@
+{
+  "description": "Sample input based on your actual Google Sheet columns",
+  "example_request": {
+    "company_name": "TechVenture Solutions Pvt Ltd",
+    "recipient_name": "Rajesh Kumar",
+    "recipient_email": "rajesh@techventure.com",
+    "industry": "Information Technology Services",
+    "company_size": "Medium (51-200 employees)",
+    "annual_revenue_inr": "180 Cr",
+    "departments": {
+      "Leadership & Management": {
+        "track_business_metrics": "Excel spreadsheets updated monthly",
+        "competitor_analysis_frequency": "Quarterly review meetings"
+      },
+      "Customer Engagement": {
+        "inquiry_handling": "Email and phone calls handled manually by team",
+        "avg_response_time": "12-24 hours on business days"
+      },
+      "Human Resources": {
+        "recruitment_screening": "Manual CV screening and basic interviews",
+        "attendance_tracking": "Biometric attendance system with Excel reports"
+      },
+      "Sales & Marketing": {
+        "lead_management": "CRM software with manual follow-ups",
+        "sales_forecasting": "Based on past trends, no predictive analytics",
+        "proposal_generation": "Word templates manually customized"
+      },
+      "Operations": {
+        "repetitive_tasks": "Manual execution with some Excel macros",
+        "process_documentation": "Word documents stored in shared drive"
+      },
+      "Inventory & Supply Chain": {
+        "inventory_tracking": "Excel-based tracking with weekly updates",
+        "vendor_communication": "Email and phone calls"
+      },
+      "Quality Control": {
+        "quality_checks": "Manual inspection by QC team",
+        "defect_tracking": "Excel sheets with basic logging"
+      },
+      "Finance & Accounting": {
+        "invoice_management": "Tally ERP with manual entry",
+        "expense_tracking": "Excel-based tracking, manual approval via email"
+      },
+      "IT & Technology": {
+        "website": "Yes, responsive dynamic website",
+        "backup_security": "Weekly backups, basic firewall and antivirus"
+      }
+    }
+  },
+  "notes": {
+    "column_mapping": {
+      "Company Name": "company_name",
+      "Contact Person Name": "recipient_name",
+      "Email Address": "recipient_email",
+      "Industry": "industry",
+      "Company Size": "company_size",
+      "Annual Revenue": "annual_revenue_inr"
+    },
+    "department_questions": {
+      "Leadership & Management": [
+        "How do you track business performance metrics?",
+        "How often do you analyze competitor activities?"
+      ],
+      "Customer Engagement": [
+        "How do you handle customer inquiries?",
+        "Average response time to customer queries"
+      ],
+      "Human Resources": [
+        "How do you handle recruitment and screening?",
+        "Employee attendance tracking method"
+      ],
+      "Sales & Marketing": [
+        "How do you manage leads and follow-ups?",
+        "Do you use any sales forecasting?",
+        "How do you generate proposals/quotations?"
+      ],
+      "Operations": [
+        "How are repetitive tasks currently handled?",
+        "Process documentation and SOPs"
+      ],
+      "Inventory & Supply Chain": [
+        "How do you track inventory levels?",
+        "Vendor/supplier communication method"
+      ],
+      "Quality Control": [
+        "How do you perform quality checks?",
+        "Defect and complaint tracking"
+      ],
+      "Finance & Accounting": [
+        "Invoice generation and management",
+        "Expense tracking and approval"
+      ],
+      "IT & Technology": [
+        "Do you have a company website?",
+        "Data backup and security practices"
+      ]
+    }
+  }
+}
