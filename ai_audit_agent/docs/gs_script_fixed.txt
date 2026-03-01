@@ -1,0 +1,503 @@
+/**
+ * Google Apps Script for AI Audit Agent - FIXED VERSION
+ * Includes validation, better error handling, and detailed logging
+ * 
+ * SETUP INSTRUCTIONS:
+ * 1. Open your Google Sheet
+ * 2. Go to Extensions → Apps Script
+ * 3. Delete any existing code and paste this entire script
+ * 4. Update WEBHOOK_URL (use HTTP for local IP, not HTTPS)
+ * 5. Save the script
+ * 6. Run testWebhook to verify
+ */
+
+// ===== CONFIGURATION =====
+// IMPORTANT: Use HTTP (not HTTPS) for local IP addresses
+const WEBHOOK_URL = "http://10.246.184.25:8000/webhook/sheet-row";
+// For production with domain: "https://your-domain.com/webhook/sheet-row"
+
+const AUTH_TOKEN = ""; // Optional authentication token
+
+// ===== MAIN FUNCTIONS =====
+
+/**
+ * Trigger function for form submissions
+ */
+function onFormSubmit(e) {
+  try {
+    Logger.log("Form submission detected");
+    
+    var sheet = e.source.getActiveSheet();
+    var row = sheet.getLastRow();
+    var data = extractRowData(sheet, row);
+    
+    // Validate before sending
+    if (!validateData(data)) {
+      Logger.log("⚠️ Validation failed - skipping webhook");
+      return;
+    }
+    
+    sendToWebhook(data);
+    
+    Logger.log("✓ Data sent successfully");
+  } catch (error) {
+    Logger.log("✗ Error in onFormSubmit: " + error.toString());
+  }
+}
+
+/**
+ * Trigger function for manual row additions
+ */
+function onEdit(e) {
+  try {
+    var sheet = e.source.getActiveSheet();
+    var range = e.range;
+    
+    // Only trigger if enough columns were edited
+    if (range.getNumColumns() >= 5) {
+      Logger.log("Row edit detected");
+      
+      var row = range.getRow();
+      
+      // Skip header row
+      if (row <= 1) {
+        Logger.log("Skipping header row");
+        return;
+      }
+      
+      var data = extractRowData(sheet, row);
+      
+      // Validate before sending
+      if (!validateData(data)) {
+        Logger.log("⚠️ Row " + row + " has missing required fields - skipping");
+        return;
+      }
+      
+      sendToWebhook(data);
+      Logger.log("✓ Data sent successfully for row " + row);
+    }
+  } catch (error) {
+    Logger.log("✗ Error in onEdit: " + error.toString());
+  }
+}
+
+/**
+ * Manual trigger function for testing
+ */
+function testWebhook() {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var lastRow = sheet.getLastRow();
+    
+    Logger.log("=== AI AUDIT AGENT TEST ===");
+    Logger.log("Testing with row: " + lastRow);
+    
+    var data = extractRowData(sheet, lastRow);
+    
+    Logger.log("\n=== EXTRACTED DATA ===");
+    Logger.log(JSON.stringify(data, null, 2));
+    
+    // Validate data
+    Logger.log("\n=== VALIDATION ===");
+    if (!validateData(data)) {
+      Logger.log("❌ VALIDATION FAILED - Cannot send to webhook");
+      Logger.log("\nPlease ensure row " + lastRow + " has:");
+      Logger.log("  • Company Name (not empty)");
+      Logger.log("  • Contact Person Name (not empty)");
+      Logger.log("  • Email Address (valid email)");
+      return;
+    }
+    Logger.log("✅ Validation passed");
+    
+    // Send to webhook
+    Logger.log("\n=== SENDING TO WEBHOOK ===");
+    Logger.log("URL: " + WEBHOOK_URL);
+    
+    var response = sendToWebhook(data);
+    
+    Logger.log("\n=== RESPONSE ===");
+    Logger.log(response);
+    
+    Logger.log("\n=== TEST RESULT ===");
+    Logger.log("✅ Test completed successfully!");
+    Logger.log("\n📧 Check email in ~60 seconds for the report");
+    
+  } catch (error) {
+    Logger.log("\n=== ERROR ===");
+    Logger.log("❌ Test failed: " + error.toString());
+    Logger.log("\nTroubleshooting:");
+    Logger.log("  1. Check WEBHOOK_URL is correct");
+    Logger.log("  2. For local IP, use HTTP not HTTPS");
+    Logger.log("  3. Ensure API server is running");
+    Logger.log("  4. Check required fields are filled");
+  }
+}
+
+// ===== VALIDATION FUNCTION =====
+
+/**
+ * Validate required fields before sending
+ */
+function validateData(data) {
+  var errors = [];
+  
+  // Check required fields
+  if (!data.company_name || data.company_name.trim() === "") {
+    errors.push("Company Name is required");
+  }
+  
+  if (!data.recipient_name || data.recipient_name.trim() === "") {
+    errors.push("Contact Person Name is required");
+  }
+  
+  if (!data.recipient_email || data.recipient_email.trim() === "") {
+    errors.push("Email Address is required");
+  } else {
+    // Basic email validation
+    var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.recipient_email)) {
+      errors.push("Email Address is invalid");
+    }
+  }
+  
+  if (!data.industry || data.industry.trim() === "") {
+    errors.push("Industry is required");
+  }
+  
+  if (!data.company_size || data.company_size.trim() === "") {
+    errors.push("Company Size is required");
+  }
+  
+  if (!data.annual_revenue_inr || data.annual_revenue_inr.trim() === "") {
+    errors.push("Annual Revenue is required");
+  }
+  
+  // Log errors if any
+  if (errors.length > 0) {
+    Logger.log("❌ Validation errors:");
+    for (var i = 0; i < errors.length; i++) {
+      Logger.log("  • " + errors[i]);
+    }
+    return false;
+  }
+  
+  return true;
+}
+
+// ===== HELPER FUNCTIONS =====
+
+/**
+ * Extract data from a specific row
+ */
+function extractRowData(sheet, rowNumber) {
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var rowData = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+  
+  // Map headers to values
+  var dataMap = {};
+  for (var i = 0; i < headers.length; i++) {
+    var value = rowData[i];
+    // Convert to string and trim, handle null/undefined
+    dataMap[headers[i]] = (value !== null && value !== undefined) ? String(value).trim() : "";
+  }
+  
+  // Structure the data
+  var structuredData = {
+    company_name: dataMap["Company Name"] || "",
+    recipient_name: dataMap["Contact Person Name"] || "",
+    recipient_email: dataMap["Email Address"] || "",
+    industry: dataMap["Industry"] || "",
+    company_size: dataMap["Company Size"] || "",
+    annual_revenue_inr: dataMap["Annual Revenue"] || "",
+    departments: extractDepartments(dataMap)
+  };
+  
+  return structuredData;
+}
+
+/**
+ * Extract department data from the row
+ */
+function extractDepartments(dataMap) {
+  var departments = {};
+  
+  // Leadership & Management
+  departments["Leadership & Management"] = {
+    "track_business_metrics": dataMap["How do you track business performance metrics?"] || "",
+    "competitor_analysis_frequency": dataMap["How often do you analyze competitor activities?"] || ""
+  };
+  
+  // Customer Engagement
+  departments["Customer Engagement"] = {
+    "inquiry_handling": dataMap["How do you handle customer inquiries?"] || "",
+    "avg_response_time": dataMap["Average response time to customer queries"] || ""
+  };
+  
+  // Human Resources
+  departments["Human Resources"] = {
+    "recruitment_screening": dataMap["How do you handle recruitment and screening?"] || "",
+    "attendance_tracking": dataMap["Employee attendance tracking method"] || ""
+  };
+  
+  // Sales & Marketing
+  departments["Sales & Marketing"] = {
+    "lead_management": dataMap["How do you manage leads and follow-ups?"] || "",
+    "sales_forecasting": dataMap["Do you use any sales forecasting?"] || "",
+    "proposal_generation": dataMap["How do you generate proposals/quotations?"] || ""
+  };
+  
+  // Operations
+  departments["Operations"] = {
+    "repetitive_tasks": dataMap["How are repetitive tasks currently handled?"] || "",
+    "process_documentation": dataMap["Process documentation and SOPs"] || ""
+  };
+  
+  // Inventory & Supply Chain
+  departments["Inventory & Supply Chain"] = {
+    "inventory_tracking": dataMap["How do you track inventory levels?"] || "",
+    "vendor_communication": dataMap["Vendor/supplier communication method"] || ""
+  };
+  
+  // Quality Control
+  departments["Quality Control"] = {
+    "quality_checks": dataMap["How do you perform quality checks?"] || "",
+    "defect_tracking": dataMap["Defect and complaint tracking"] || ""
+  };
+  
+  // Finance & Accounting
+  departments["Finance & Accounting"] = {
+    "invoice_management": dataMap["Invoice generation and management"] || "",
+    "expense_tracking": dataMap["Expense tracking and approval"] || ""
+  };
+  
+  // IT & Technology
+  departments["IT & Technology"] = {
+    "website": dataMap["Do you have a company website?"] || "",
+    "backup_security": dataMap["Data backup and security practices"] || ""
+  };
+  
+  return departments;
+}
+
+/**
+ * Send data to webhook endpoint with detailed error handling
+ */
+function sendToWebhook(data) {
+  try {
+    var options = {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify(data),
+      muteHttpExceptions: true,  // Don't throw on HTTP errors
+      validateHttpsCertificates: false  // Allow self-signed certs for testing
+    };
+    
+    // Add authentication header if configured
+    if (AUTH_TOKEN) {
+      options.headers = {
+        "Authorization": "Bearer " + AUTH_TOKEN
+      };
+    }
+    
+    Logger.log("Sending request to: " + WEBHOOK_URL);
+    
+    var response = UrlFetchApp.fetch(WEBHOOK_URL, options);
+    var responseCode = response.getResponseCode();
+    var responseBody = response.getContentText();
+    
+    Logger.log("Response code: " + responseCode);
+    Logger.log("Response body: " + responseBody);
+    
+    // Try to parse and pretty-print JSON errors
+    if (responseCode !== 200) {
+      try {
+        var errorJson = JSON.parse(responseBody);
+        Logger.log("Detailed error:");
+        Logger.log(JSON.stringify(errorJson, null, 2));
+      } catch (e) {
+        // Not JSON, already logged above
+      }
+    }
+    
+    if (responseCode === 200) {
+      Logger.log("✅ Success!");
+      return responseBody;
+    } else if (responseCode === 422) {
+      Logger.log("❌ Validation error (422):");
+      try {
+        var errorData = JSON.parse(responseBody);
+        Logger.log(JSON.stringify(errorData, null, 2));
+      } catch (e) {
+        Logger.log(responseBody);
+      }
+      throw new Error("Validation failed: " + responseBody);
+    } else {
+      Logger.log("❌ HTTP Error " + responseCode);
+      throw new Error("HTTP " + responseCode + ": " + responseBody);
+    }
+    
+  } catch (error) {
+    var errorMsg = error.toString();
+    Logger.log("❌ Error sending to webhook: " + errorMsg);
+    
+    // Provide helpful troubleshooting
+    if (errorMsg.indexOf("DNS error") >= 0 || errorMsg.indexOf("network") >= 0) {
+      Logger.log("\n⚠️ Network/DNS error - Check:");
+      Logger.log("  • Is the IP address correct?");
+      Logger.log("  • Is the server running?");
+      Logger.log("  • Can you access it from browser?");
+    } else if (errorMsg.indexOf("SSL") >= 0 || errorMsg.indexOf("certificate") >= 0) {
+      Logger.log("\n⚠️ SSL/Certificate error - Fix:");
+      Logger.log("  • Use HTTP (not HTTPS) for local IP");
+      Logger.log("  • Change: https://10.x.x.x to http://10.x.x.x");
+    } else if (errorMsg.indexOf("timeout") >= 0) {
+      Logger.log("\n⚠️ Timeout error - Check:");
+      Logger.log("  • Is the API responding?");
+      Logger.log("  • Try: curl " + WEBHOOK_URL.replace("/webhook/sheet-row", "/health"));
+    }
+    
+    throw error;
+  }
+}
+
+// ===== UTILITY FUNCTIONS =====
+
+/**
+ * Show current configuration
+ */
+function showConfig() {
+  Logger.log("=== CURRENT CONFIGURATION ===");
+  Logger.log("Webhook URL: " + WEBHOOK_URL);
+  Logger.log("Auth Token: " + (AUTH_TOKEN ? "Set" : "Not set"));
+  
+  var sheet = SpreadsheetApp.getActiveSheet();
+  Logger.log("Sheet name: " + sheet.getName());
+  Logger.log("Total rows: " + sheet.getLastRow());
+  Logger.log("Total columns: " + sheet.getLastColumn());
+  
+  Logger.log("\n=== COLUMN HEADERS ===");
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  for (var i = 0; i < headers.length; i++) {
+    Logger.log((i + 1) + ". " + headers[i]);
+  }
+}
+
+/**
+ * Test API health endpoint
+ */
+function testHealth() {
+  try {
+    var healthUrl = WEBHOOK_URL.replace("/webhook/sheet-row", "/health");
+    Logger.log("Testing health endpoint: " + healthUrl);
+    
+    var response = UrlFetchApp.fetch(healthUrl, {
+      method: "get",
+      muteHttpExceptions: true,
+      validateHttpsCertificates: false
+    });
+    
+    var code = response.getResponseCode();
+    var body = response.getContentText();
+    
+    Logger.log("Status: " + code);
+    Logger.log("Response: " + body);
+    
+    if (code === 200) {
+      Logger.log("✅ API is healthy and reachable!");
+      return true;
+    } else {
+      Logger.log("⚠️ API returned status " + code);
+      return false;
+    }
+    
+  } catch (error) {
+    Logger.log("❌ Cannot reach API: " + error.toString());
+    Logger.log("\nMake sure:");
+    Logger.log("  • API server is running");
+    Logger.log("  • Webhook URL is correct");
+    Logger.log("  • Using HTTP (not HTTPS) for local IP");
+    return false;
+  }
+}
+
+/**
+ * Find rows with missing required fields
+ */
+function findIncompleteRows() {
+  var sheet = SpreadsheetApp.getActiveSheet();
+  var lastRow = sheet.getLastRow();
+  
+  Logger.log("=== CHECKING ROWS FOR COMPLETENESS ===");
+  Logger.log("Total rows: " + lastRow);
+  
+  var incompleteRows = [];
+  
+  for (var i = 2; i <= lastRow; i++) {  // Start from row 2 (skip header)
+    var data = extractRowData(sheet, i);
+    
+    if (!validateData(data)) {
+      incompleteRows.push(i);
+      Logger.log("\n❌ Row " + i + " is incomplete:");
+      Logger.log("  Company: " + (data.company_name || "(empty)"));
+      Logger.log("  Contact: " + (data.recipient_name || "(empty)"));
+      Logger.log("  Email: " + (data.recipient_email || "(empty)"));
+    }
+  }
+  
+  if (incompleteRows.length === 0) {
+    Logger.log("\n✅ All rows have required fields!");
+  } else {
+    Logger.log("\n" + incompleteRows.length + " row(s) need attention: " + incompleteRows.join(", "));
+  }
+}
+
+// ===== QUICK TROUBLESHOOTING =====
+/*
+
+COMMON ISSUES AND FIXES:
+
+1. "Bad request" error
+   → Row has empty required fields
+   → Run findIncompleteRows() to find which rows
+   → Fill in Company Name, Contact Person Name, Email Address
+
+2. "DNS error" or "network error"
+   → Check WEBHOOK_URL is correct
+   → Make sure API server is running
+   → Run testHealth() to verify connection
+
+3. "SSL" or "certificate" error
+   → Using HTTPS with local IP without certificate
+   → Change https:// to http:// in WEBHOOK_URL
+   → Example: http://10.246.184.25:8000/webhook/sheet-row
+
+4. "Validation failed" (422 error)
+   → API validation rejected the data
+   → Check required fields are filled
+   → Check email format is valid
+
+5. Script doesn't run automatically
+   → Trigger not set up correctly
+   → Go to Clock icon → Add Trigger
+   → Function: onEdit, Event: On edit
+
+TESTING CHECKLIST:
+
+□ Run showConfig() - Verify webhook URL
+□ Run testHealth() - Check API is reachable
+□ Run findIncompleteRows() - Find rows with missing data
+□ Fill required fields in row
+□ Run testWebhook() - Test full workflow
+□ Check email for report (~60 seconds)
+
+WEBHOOK URL FORMAT:
+
+Local IP (development):
+  ✅ http://10.246.184.25:8000/webhook/sheet-row
+  ❌ https://10.246.184.25:8000/webhook/sheet-row (SSL error)
+
+Production (with domain):
+  ✅ https://yourdomain.com/webhook/sheet-row
+  ✅ https://api.yourdomain.com/webhook/sheet-row
+
+*/

@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  ai-audit-agent:
+    build: .
+    container_name: ai-audit-agent
+    ports:
+      - "8000:8000"
+    environment:
+      # Hugging Face Configuration
+      - HF_API_KEY=${HF_API_KEY}
+      - HF_MODEL_URL=${HF_MODEL_URL:-https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1}
+      
+      # Email Configuration
+      - SENDER_EMAIL=${SENDER_EMAIL}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-465}
+      
+      # Application Configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - OUTPUT_DIR=/tmp/ai_audit_reports
+    
+    restart: unless-stopped
+    
+    volumes:
+      # Mount logs directory
+      - ./logs:/app/logs
+      # Mount temporary PDF storage
+      - pdf-storage:/tmp/ai_audit_reports
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    networks:
+      - ai-audit-network
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+volumes:
+  pdf-storage:
+    driver: local
+
+networks:
+  ai-audit-network:
+    driver: bridge
