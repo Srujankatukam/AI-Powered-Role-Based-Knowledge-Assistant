@@ -1,0 +1,277 @@
+/**
+ * Google Apps Script for AI Audit Agent
+ * 
+ * This script triggers when a new row is added to your Google Sheet
+ * and sends the data to your FastAPI backend for processing.
+ * 
+ * SETUP INSTRUCTIONS:
+ * 1. Open your Google Sheet
+ * 2. Go to Extensions → Apps Script
+ * 3. Paste this code
+ * 4. Replace YOUR_API_URL with your actual API endpoint
+ * 5. Save the script
+ * 6. Set up a trigger (see instructions below)
+ */
+
+// ===== CONFIGURATION =====
+// Replace with your actual API endpoint
+const WEBHOOK_URL = "https://your-domain.com/webhook/sheet-row";
+// Or for local testing: "http://your-ip:8000/webhook/sheet-row"
+
+// Optional: Add authentication token if you've secured your endpoint
+const AUTH_TOKEN = ""; // Leave empty if not using authentication
+
+// ===== MAIN FUNCTIONS =====
+
+/**
+ * Trigger function for form submissions
+ * Use this if your sheet is connected to a Google Form
+ */
+function onFormSubmit(e) {
+  try {
+    Logger.log("Form submission detected");
+    
+    var sheet = e.source.getActiveSheet();
+    var row = sheet.getLastRow();
+    var data = extractRowData(sheet, row);
+    
+    sendToWebhook(data);
+    
+    Logger.log("Data sent successfully");
+  } catch (error) {
+    Logger.log("Error in onFormSubmit: " + error.toString());
+    // Optionally send error notification
+  }
+}
+
+/**
+ * Trigger function for manual row additions
+ * Use this if you're manually adding rows to the sheet
+ */
+function onEdit(e) {
+  try {
+    var sheet = e.source.getActiveSheet();
+    var range = e.range;
+    
+    // Only trigger if a full row was edited
+    if (range.getNumColumns() >= 5) {
+      Logger.log("Row edit detected");
+      
+      var row = range.getRow();
+      
+      // Skip header row
+      if (row <= 1) {
+        return;
+      }
+      
+      var data = extractRowData(sheet, row);
+      
+      // Only send if company name is filled
+      if (data.company_name && data.company_name.trim() !== "") {
+        sendToWebhook(data);
+        Logger.log("Data sent successfully for row " + row);
+      }
+    }
+  } catch (error) {
+    Logger.log("Error in onEdit: " + error.toString());
+  }
+}
+
+/**
+ * Manual trigger function for testing
+ * Run this manually to test with the last row
+ */
+function testWebhook() {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var lastRow = sheet.getLastRow();
+    
+    Logger.log("Testing with row: " + lastRow);
+    
+    var data = extractRowData(sheet, lastRow);
+    
+    Logger.log("Extracted data: " + JSON.stringify(data, null, 2));
+    
+    var response = sendToWebhook(data);
+    
+    Logger.log("Response: " + response);
+  } catch (error) {
+    Logger.log("Error in testWebhook: " + error.toString());
+  }
+}
+
+// ===== HELPER FUNCTIONS =====
+
+/**
+ * Extract data from a specific row and structure it for the API
+ */
+function extractRowData(sheet, rowNumber) {
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var rowData = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+  
+  // Map headers to values
+  var dataMap = {};
+  for (var i = 0; i < headers.length; i++) {
+    dataMap[headers[i]] = rowData[i];
+  }
+  
+  // Structure the data according to API requirements
+  var structuredData = {
+    company_name: dataMap["Company Name"] || "",
+    recipient_name: dataMap["Recipient Name"] || "",
+    recipient_email: dataMap["Recipient Email"] || "",
+    industry: dataMap["Industry"] || "",
+    company_size: dataMap["Company Size"] || "",
+    annual_revenue_inr: dataMap["Annual Revenue (INR)"] || "",
+    departments: extractDepartments(dataMap)
+  };
+  
+  return structuredData;
+}
+
+/**
+ * Extract department data from the row
+ * Adjust this function based on your sheet structure
+ */
+function extractDepartments(dataMap) {
+  var departments = {};
+  
+  // Leadership & Management
+  departments["Leadership & Management"] = {
+    track_business_metrics: dataMap["L&M: Track Business Metrics"] || "",
+    competitor_analysis_frequency: dataMap["L&M: Competitor Analysis"] || ""
+  };
+  
+  // Customer Engagement
+  departments["Customer Engagement"] = {
+    inquiry_handling: dataMap["CE: Inquiry Handling"] || "",
+    collect_feedback: dataMap["CE: Collect Feedback"] || "",
+    avg_response_time: dataMap["CE: Avg Response Time"] || ""
+  };
+  
+  // Human Resources
+  departments["Human Resources"] = {
+    recruitment_screening: dataMap["HR: Recruitment Screening"] || "",
+    attendance_tracking: dataMap["HR: Attendance Tracking"] || ""
+  };
+  
+  // IT & Technology
+  departments["IT & Technology"] = {
+    website: dataMap["IT: Website"] || "",
+    backup_security: dataMap["IT: Backup & Security"] || ""
+  };
+  
+  return departments;
+}
+
+/**
+ * Send data to webhook endpoint
+ */
+function sendToWebhook(data) {
+  try {
+    var options = {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify(data),
+      muteHttpExceptions: true
+    };
+    
+    // Add authentication header if configured
+    if (AUTH_TOKEN) {
+      options.headers = {
+        "Authorization": "Bearer " + AUTH_TOKEN
+      };
+    }
+    
+    var response = UrlFetchApp.fetch(WEBHOOK_URL, options);
+    var responseCode = response.getResponseCode();
+    var responseBody = response.getContentText();
+    
+    if (responseCode === 200) {
+      Logger.log("Success: " + responseBody);
+      return responseBody;
+    } else {
+      Logger.log("Error: HTTP " + responseCode + " - " + responseBody);
+      throw new Error("HTTP " + responseCode + ": " + responseBody);
+    }
+  } catch (error) {
+    Logger.log("Error sending to webhook: " + error.toString());
+    throw error;
+  }
+}
+
+// ===== TRIGGER SETUP INSTRUCTIONS =====
+/*
+
+TO SET UP AUTOMATIC TRIGGERS:
+
+1. In Apps Script editor, click on the clock icon (Triggers) in the left sidebar
+
+2. Click "+ Add Trigger" button
+
+3. Configure the trigger:
+   - Choose function: onFormSubmit (for form) or onEdit (for manual entry)
+   - Choose event source: From spreadsheet
+   - Choose event type: On form submit or On edit
+   - Click "Save"
+
+4. Grant necessary permissions when prompted
+
+5. Test by adding a new row to your sheet
+
+
+COLUMN HEADERS REQUIRED IN YOUR SHEET:
+
+Make sure your Google Sheet has these column headers (Row 1):
+
+Basic Info:
+- Company Name
+- Recipient Name
+- Recipient Email
+- Industry
+- Company Size
+- Annual Revenue (INR)
+
+Leadership & Management:
+- L&M: Track Business Metrics
+- L&M: Competitor Analysis
+
+Customer Engagement:
+- CE: Inquiry Handling
+- CE: Collect Feedback
+- CE: Avg Response Time
+
+Human Resources:
+- HR: Recruitment Screening
+- HR: Attendance Tracking
+
+IT & Technology:
+- IT: Website
+- IT: Backup & Security
+
+
+TESTING:
+
+1. Run "testWebhook" function manually from the Apps Script editor
+2. Check the logs (View → Logs or Ctrl+Enter)
+3. Verify the webhook receives data on your server
+
+
+TROUBLESHOOTING:
+
+Problem: Script doesn't run
+Solution: Check that triggers are properly set up
+
+Problem: Permission denied
+Solution: Authorize the script when prompted
+
+Problem: Webhook fails
+Solution: 
+  - Check WEBHOOK_URL is correct
+  - Ensure server is running and accessible
+  - Check Apps Script logs for detailed error messages
+
+Problem: Data not structured correctly
+Solution: Adjust extractDepartments() function to match your sheet structure
+
+*/
